@@ -1,0 +1,53 @@
+name: Learning Scraper
+
+on:
+  repository_dispatch:
+    types: [scrape_request]
+  workflow_dispatch:
+    inputs:
+      url:
+        description: 'URL to scrape'
+        required: true
+        default: 'https://example.com'
+      priority:
+        description: 'Task priority'
+        required: false
+        default: 'normal'
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+    
+    - name: Install dependencies
+      run: |
+        pip install playwright beautifulsoup4 httpx python-dotenv requests
+        playwright install chromium --with-deps
+    
+    - name: Run learning scraper
+      env:
+        SYNAPSE_HUB_URL: ${{ secrets.SYNAPSE_HUB_URL }}
+        SENSORY_API_KEY: ${{ secrets.SENSORY_API_KEY }}
+        TARGET_URL: ${{ github.event.client_payload.url || github.event.inputs.url }}
+        PRIORITY: ${{ github.event.client_payload.priority || github.event.inputs.priority }}
+      run: |
+        python scraper.py
+    
+    - name: Upload results
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: scraping-results-${{ github.run_id }}
+        path: |
+          screenshots/
+          results.json
+        retention-days: 3
